@@ -337,9 +337,11 @@ import SwiftUI
 
 struct ColorSpinGameView: View {
     @ObservedObject var mainViewModel: MainViewModel
-    @State private var selectedColorIndex: Int? = 0
-    @State private var currentColorIndex: Int = 1
+    @State private var selectedColorIndex: Int? = nil
+    @State private var currentColorIndex: Int = 0
     @State private var isSpinning = false
+    @State private var hasSpun = false
+    @State private var initialSelection: Int? = nil  // запоминаем выбор перед спином
 
     private let colors: [Color] = [.red, .green, .blue, .yellow, .purple, .orange]
     private let colorNames = ["Red", "Green", "Blue", "Yellow", "Purple", "Orange"]
@@ -363,6 +365,7 @@ struct ColorSpinGameView: View {
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
+                .disabled(isSpinning) // блокируем выбор, пока крутится
 
                 Circle()
                     .fill(colors[currentColorIndex])
@@ -382,8 +385,8 @@ struct ColorSpinGameView: View {
                 }
                 .disabled(isSpinning || selectedColorIndex == nil)
 
-                // Показываем надпись при выигрыше
-                if !isSpinning && currentColorIndex == selectedColorIndex {
+                // показываем сообщение только если цвет совпал с тем, который был выбран до спина
+                if !isSpinning, hasSpun, let selected = initialSelection, currentColorIndex == selected {
                     Text("You won 200 points!")
                         .font(.title3.bold())
                         .foregroundColor(.green)
@@ -399,6 +402,8 @@ struct ColorSpinGameView: View {
     func spin() {
         guard !isSpinning, let selected = selectedColorIndex else { return }
         isSpinning = true
+        hasSpun = true
+        initialSelection = selected // сохраняем выбор именно перед вращением
 
         var spinCount = 20
         Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
@@ -407,6 +412,12 @@ struct ColorSpinGameView: View {
             if spinCount <= 0 {
                 timer.invalidate()
                 isSpinning = false
+
+                // немного увеличим шанс победы
+                if currentColorIndex != selected && Int.random(in: 1...100) <= 35 {
+                    currentColorIndex = selected
+                }
+
                 if currentColorIndex == selected {
                     let reward = 200
                     mainViewModel.addPoints(reward)
@@ -433,24 +444,21 @@ struct ShopView: View {
     
     // Список бонусов в магазине
     private let shopItems: [ShopItem] = [
-        ShopItem(title: "Auto Spin", description: "5 automatic spins", price: 500),
-        ShopItem(title: "2x Multiplier", description: "Double winnings for 10 min", price: 1000),
-        ShopItem(title: "Bonus Coins", description: "Instant 1000 coins", price: 1200),
-        ShopItem(title: "Extra Life", description: "Revive after loss", price: 800),
-        ShopItem(title: "Unlock Skin", description: "Change game theme", price: 1500),
-        ShopItem(title: "Jackpot Boost", description: "Increase jackpot chance", price: 2000),
-        ShopItem(title: "Spin Speed Up", description: "Faster slot spins", price: 700),
-        ShopItem(title: "Lucky Charm", description: "Slightly improve odds", price: 1300),
-        ShopItem(title: "Mega Bonus", description: "Get bonus multipliers", price: 2500),
-        ShopItem(title: "Secret Game Key", description: "Unlock hidden game", price: 10000)
+        ShopItem(title: "2x Сhance", description: "Double chance for 10 min", price: 5000),
+        ShopItem(title: "Unlock Skin", description: "Change game theme", price: 6000),
+        ShopItem(title: "Jackpot Boost", description: "Increase jackpot chance", price: 8000),
+        ShopItem(title: "Lucky Charm", description: "Slightly improve odds", price: 10000),
+        ShopItem(title: "Mega Bonus", description: "Get bonus multipliers", price: 12500),
+        ShopItem(title: "Secret Game Key", description: "Unlock hidden game", price: 100000)
     ]
     
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color.blue.opacity(0.9), Color.purple.opacity(0.9)],
+                colors: [Color.purple.opacity(0.8), Color.blue.opacity(0.8)],
                 startPoint: .topLeading,
-                endPoint: .bottomTrailing)
+                endPoint: .bottomTrailing
+            )
                 .ignoresSafeArea()
             
             List {
@@ -531,14 +539,15 @@ struct AchievementsView: View {
             LinearGradient(
                 colors: [Color.purple.opacity(0.8), Color.blue.opacity(0.8)],
                 startPoint: .topLeading,
-                endPoint: .bottomTrailing)
+                endPoint: .bottomTrailing
+            )
             .ignoresSafeArea()
 
             List {
                 ForEach(achievements) { achievement in
                     HStack {
                         Image(systemName: achievement.isUnlocked ? "checkmark.seal.fill" : "lock.fill")
-                            .foregroundColor(achievement.isUnlocked ? .green : .gray)
+                            .foregroundColor(achievement.isUnlocked ? .green : .black.opacity(0.7))
                             .font(.title2)
                         
                         VStack(alignment: .leading, spacing: 4) {
@@ -553,7 +562,7 @@ struct AchievementsView: View {
                         Text("+\(achievement.rewardPoints)")
                             .font(.title3)
                             .bold()
-                            .foregroundColor(achievement.isUnlocked ? .yellow : .gray)
+                            .foregroundColor(achievement.isUnlocked ? .yellow : .black.opacity(0.7))
                     }
                     .padding(.vertical, 6)
                     .listRowBackground(Color.clear)
@@ -585,9 +594,10 @@ struct DailyRewardView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color.blue.opacity(0.9), Color.purple.opacity(0.9)],
+                colors: [Color.purple.opacity(0.8), Color.blue.opacity(0.8)],
                 startPoint: .topLeading,
-                endPoint: .bottomTrailing)
+                endPoint: .bottomTrailing
+            )
                 .ignoresSafeArea()
             
             VStack(spacing: 30) {
@@ -717,15 +727,25 @@ class GameDetailViewModel: ObservableObject {
                     self.spinCancellable?.cancel()
                     self.isSpinning = false
                     self.evaluateWin()
+                    
+                    mainViewModel.addPoints(lastWin)
+                    mainViewModel.addCoins(lastWin / 10)
+                } else {
+                    lastWin = 0
                 }
             }
     }
     
     func evaluateWin() {
-        if reels.allSatisfy({ $0 == reels.first }) {
-            lastWin = reels.first! * 100
-            mainViewModel.addPoints(lastWin)
-            mainViewModel.addCoins(lastWin / 10)
+        
+        let lucky = Bool.random()
+
+        if Int.random(in: 1...100) <= 20 || lucky {
+            let val = Int.random(in: 1...9)
+            reels = [val, val, val]
+            lastWin = Int.random(in: 50...150)
+        } else {
+            lastWin = 0
         }
     }
 }
