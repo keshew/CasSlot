@@ -309,7 +309,7 @@ struct LuckyLinesView: View {
                 if viewModel.lastWin > 0 && !viewModel.isSpinning {
                     Text("You won \(viewModel.lastWin) points!")
                         .font(.title2.bold())
-                        .foregroundColor(.green)
+                        .foregroundColor(.black)
                         .transition(.opacity)
                 }
                 
