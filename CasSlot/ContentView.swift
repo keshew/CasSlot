@@ -796,7 +796,7 @@ struct GameDetailView: View {
                 if viewModel.lastWin > 0 {
                     Text("You won \(viewModel.lastWin) points!")
                         .font(.title3)
-                        .foregroundColor(.green)
+                        .foregroundColor(.black)
                         .transition(.opacity)
                 }
                 
